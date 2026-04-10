@@ -10,6 +10,7 @@
 
     <ItemGroup>
       <PackageReference Include="Aspire.Hosting.Keycloak" Version="13.2.2-preview.1.26207.2" />
+      <ProjectReference Include="..\KeyCloak.Aspire.Extensions\KeyCloak.Aspire.Extensions.csproj" IsAspireProjectResource="false" />
     </ItemGroup>
 
 </Project>
