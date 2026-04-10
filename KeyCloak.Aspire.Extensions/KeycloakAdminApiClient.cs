@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using Aspire.Hosting.ApplicationModel;
 
 namespace KeyCloak.Aspire.Extensions;
 
@@ -40,10 +41,45 @@ internal sealed class KeycloakAdminApiClient(HttpClient client, string baseUrl, 
     public async Task CreateRealmAsync(string realmName, CancellationToken ct)
     {
         await Authenticate(ct);
-        
+
         var content = JsonContent.Create(new RealmRepresentation(realmName, true), KeycloakJsonContext.Default.RealmRepresentation);
         var response = await client.PostAsync($"{baseUrl}/admin/realms", content, ct);
         response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<bool> UserExistsAsync(string realmName, string username, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var url = $"{baseUrl}/admin/realms/{realmName}/users?username={Uri.EscapeDataString(username)}&exact=true";
+        var response = await client.GetAsync(url, ct);
+        response.EnsureSuccessStatusCode();
+
+        var users = await response.Content.ReadFromJsonAsync(KeycloakJsonContext.Default.ListUserRepresentation, ct);
+        return users?.Count > 0;
+    }
+
+    public async Task CreateUserAsync(string realmName, KeycloakUserResource user, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var representation = new UserRepresentation(user.Id, user.Username, user.Email, user.FirstName, user.LastName, true, true,
+            [new CredentialRepresentation("password", user.Password, false)]);
+
+        // The standard create-user endpoint ignores the id field
+        if (user.Id is not null)
+        {
+            var import = new PartialImportRequest("SKIP", [representation]);
+            var importContent = JsonContent.Create(import, KeycloakJsonContext.Default.PartialImportRequest);
+            var importResponse = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/partialImport", importContent, ct);
+            importResponse.EnsureSuccessStatusCode();
+        }
+        else
+        {
+            var content = JsonContent.Create(representation, KeycloakJsonContext.Default.UserRepresentation);
+            var response = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/users", content, ct);
+            response.EnsureSuccessStatusCode();
+        }
     }
 }
 
@@ -56,6 +92,38 @@ internal sealed record RealmRepresentation(
     [property: JsonPropertyName("enabled")]
     bool Enabled);
 
+internal sealed record UserRepresentation(
+    [property: JsonPropertyName("id")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? Id,
+    [property: JsonPropertyName("username")]
+    string Username,
+    [property: JsonPropertyName("email")] string Email,
+    [property: JsonPropertyName("firstName")]
+    string FirstName,
+    [property: JsonPropertyName("lastName")]
+    string LastName,
+    [property: JsonPropertyName("enabled")]
+    bool Enabled,
+    [property: JsonPropertyName("emailVerified")]
+    bool EmailVerified,
+    [property: JsonPropertyName("credentials")]
+    List<CredentialRepresentation> Credentials);
+
+internal sealed record CredentialRepresentation(
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("value")] string Value,
+    [property: JsonPropertyName("temporary")]
+    bool Temporary);
+
+internal sealed record PartialImportRequest(
+    [property: JsonPropertyName("ifResourceExists")]
+    string IfResourceExists,
+    [property: JsonPropertyName("users")] List<UserRepresentation> Users);
+
 [JsonSerializable(typeof(TokenResponse))]
 [JsonSerializable(typeof(RealmRepresentation))]
+[JsonSerializable(typeof(UserRepresentation))]
+[JsonSerializable(typeof(List<UserRepresentation>))]
+[JsonSerializable(typeof(PartialImportRequest))]
 internal sealed partial class KeycloakJsonContext : JsonSerializerContext;

@@ -2,15 +2,12 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
         <UserSecretsId>e76a321b-d55e-4fd0-8d46-553fdc3be4da</UserSecretsId>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Aspire.Hosting.Keycloak" Version="13.2.2-preview.1.26207.2" />
-      <ProjectReference Include="..\KeyCloak.Aspire.Extensions\KeyCloak.Aspire.Extensions.csproj" IsAspireProjectResource="false" />
+        <PackageReference Include="Aspire.Hosting.Keycloak" Version="13.2.2-preview.1.26207.2"/>
+        <ProjectReference Include="..\KeyCloak.Aspire.Extensions\KeyCloak.Aspire.Extensions.csproj" IsAspireProjectResource="false"/>
     </ItemGroup>
 
 </Project>
