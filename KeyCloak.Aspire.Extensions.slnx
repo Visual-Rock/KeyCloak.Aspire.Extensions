@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/Solution Folder/">
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+  </Folder>
+  <Project Path="KeyCloak.Aspire.Extensions/KeyCloak.Aspire.Extensions.csproj" />
+</Solution>
