@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Example/">
+    <Project Path="ExampleAppHost/ExampleAppHost.csproj" />
+  </Folder>
   <Folder Name="/Solution Folder/">
     <File Path=".gitignore" />
     <File Path="Directory.Build.props" />
