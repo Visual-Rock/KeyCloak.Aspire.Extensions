@@ -69,7 +69,7 @@ internal sealed class KeycloakAdminApiClient(HttpClient client, string baseUrl, 
         // The standard create-user endpoint ignores the id field
         if (user.Id is not null)
         {
-            var import = new PartialImportRequest("SKIP", [representation]);
+            var import = new PartialImportRequest("SKIP", Users: [representation]);
             var importContent = JsonContent.Create(import, KeycloakJsonContext.Default.PartialImportRequest);
             var importResponse = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/partialImport", importContent, ct);
             importResponse.EnsureSuccessStatusCode();
@@ -78,6 +78,37 @@ internal sealed class KeycloakAdminApiClient(HttpClient client, string baseUrl, 
         {
             var content = JsonContent.Create(representation, KeycloakJsonContext.Default.UserRepresentation);
             var response = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/users", content, ct);
+            response.EnsureSuccessStatusCode();
+        }
+    }
+
+    public async Task<bool> ClientExistsAsync(string realmName, string clientId, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var url = $"{baseUrl}/admin/realms/{realmName}/clients?clientId={Uri.EscapeDataString(clientId)}&search=false";
+        var response = await client.GetAsync(url, ct);
+        response.EnsureSuccessStatusCode();
+
+        var clients = await response.Content.ReadFromJsonAsync(KeycloakJsonContext.Default.ListClientRepresentation, ct);
+        return clients?.Count > 0;
+    }
+
+    public async Task CreateClientAsync(string realmName, ClientRepresentation clientRepresentation, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        if (clientRepresentation.Secret is not null)
+        {
+            var import = new PartialImportRequest("SKIP", Clients: [clientRepresentation]);
+            var importContent = JsonContent.Create(import, KeycloakJsonContext.Default.PartialImportRequest);
+            var importResponse = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/partialImport", importContent, ct);
+            importResponse.EnsureSuccessStatusCode();
+        }
+        else
+        {
+            var content = JsonContent.Create(clientRepresentation, KeycloakJsonContext.Default.ClientRepresentation);
+            var response = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/clients", content, ct);
             response.EnsureSuccessStatusCode();
         }
     }
@@ -119,11 +150,49 @@ internal sealed record CredentialRepresentation(
 internal sealed record PartialImportRequest(
     [property: JsonPropertyName("ifResourceExists")]
     string IfResourceExists,
-    [property: JsonPropertyName("users")] List<UserRepresentation> Users);
+    [property: JsonPropertyName("users")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    List<UserRepresentation>? Users = null,
+    [property: JsonPropertyName("clients")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    List<ClientRepresentation>? Clients = null);
+
+internal sealed record ClientRepresentation(
+    [property: JsonPropertyName("clientId")]
+    string ClientId,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? Description,
+    [property: JsonPropertyName("protocol")]
+    string Protocol,
+    [property: JsonPropertyName("enabled")]
+    bool Enabled,
+    [property: JsonPropertyName("publicClient")]
+    bool PublicClient,
+    [property: JsonPropertyName("bearerOnly")]
+    bool BearerOnly,
+    [property: JsonPropertyName("standardFlowEnabled")]
+    bool StandardFlowEnabled,
+    [property: JsonPropertyName("implicitFlowEnabled")]
+    bool ImplicitFlowEnabled,
+    [property: JsonPropertyName("directAccessGrantsEnabled")]
+    bool DirectAccessGrantsEnabled,
+    [property: JsonPropertyName("serviceAccountsEnabled")]
+    bool ServiceAccountsEnabled,
+    [property: JsonPropertyName("redirectUris")]
+    string[]? RedirectUris,
+    [property: JsonPropertyName("webOrigins")]
+    string[]? WebOrigins,
+    [property: JsonPropertyName("secret")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? Secret);
 
 [JsonSerializable(typeof(TokenResponse))]
 [JsonSerializable(typeof(RealmRepresentation))]
 [JsonSerializable(typeof(UserRepresentation))]
 [JsonSerializable(typeof(List<UserRepresentation>))]
 [JsonSerializable(typeof(PartialImportRequest))]
+[JsonSerializable(typeof(ClientRepresentation))]
+[JsonSerializable(typeof(List<ClientRepresentation>))]
 internal sealed partial class KeycloakJsonContext : JsonSerializerContext;
