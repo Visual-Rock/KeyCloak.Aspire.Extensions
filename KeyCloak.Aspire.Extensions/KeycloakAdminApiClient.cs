@@ -20,8 +20,7 @@ internal sealed class KeycloakAdminApiClient(HttpClient client, string baseUrl, 
             }), ct);
 
         response.EnsureSuccessStatusCode();
-        var token = await response.Content.ReadFromJsonAsync(KeycloakJsonContext.Default.TokenResponse, ct) ??
-                    throw new InvalidOperationException("Empty token response from Keycloak.");
+        var token = await response.Content.ReadFromJsonAsync(KeycloakJsonContext.Default.TokenResponse, ct) ?? throw new InvalidOperationException("Empty token response from Keycloak.");
         var accessToken = token.AccessToken ?? throw new InvalidOperationException("No access_token in Keycloak token response.");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
     }
@@ -90,8 +89,59 @@ internal sealed class KeycloakAdminApiClient(HttpClient client, string baseUrl, 
         var response = await client.GetAsync(url, ct);
         response.EnsureSuccessStatusCode();
 
-        var clients = await response.Content.ReadFromJsonAsync(KeycloakJsonContext.Default.ListClientRepresentation, ct);
+        var clients = await response.Content.ReadFromJsonAsync(KeycloakJsonContext.Default.ListClientLookupResponse, ct);
         return clients?.Count > 0;
+    }
+
+    public async Task<string> GetClientInternalIdAsync(string realmName, string clientId, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var url = $"{baseUrl}/admin/realms/{realmName}/clients?clientId={Uri.EscapeDataString(clientId)}&search=false";
+        var response = await client.GetAsync(url, ct);
+        response.EnsureSuccessStatusCode();
+
+        var clients = await response.Content.ReadFromJsonAsync(KeycloakJsonContext.Default.ListClientLookupResponse, ct);
+        return clients?.FirstOrDefault()?.Id
+               ?? throw new InvalidOperationException($"Client '{clientId}' not found in realm '{realmName}'.");
+    }
+
+    public async Task<bool> ClientRoleExistsAsync(string realmName, string internalClientId, string roleName, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var response = await client.GetAsync(
+            $"{baseUrl}/admin/realms/{realmName}/clients/{internalClientId}/roles/{Uri.EscapeDataString(roleName)}", ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return false;
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    public async Task CreateClientRoleAsync(string realmName, string internalClientId, RoleRepresentation role, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var content = JsonContent.Create(role, KeycloakJsonContext.Default.RoleRepresentation);
+        var response = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/clients/{internalClientId}/roles", content, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task CreateProtocolMapperAsync(string realmName, string internalClientId, ProtocolMapperRepresentation mapper, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var content = JsonContent.Create(mapper, KeycloakJsonContext.Default.ProtocolMapperRepresentation);
+        var response = await client.PostAsync(
+            $"{baseUrl}/admin/realms/{realmName}/clients/{internalClientId}/protocol-mappers/models", content, ct);
+
+        // 409 Conflict -> mapper already exists
+        if (response.StatusCode == HttpStatusCode.Conflict)
+            return;
+
+        response.EnsureSuccessStatusCode();
     }
 
     public async Task CreateClientAsync(string realmName, ClientRepresentation clientRepresentation, CancellationToken ct)
@@ -157,6 +207,22 @@ internal sealed record PartialImportRequest(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     List<ClientRepresentation>? Clients = null);
 
+internal sealed record ClientLookupResponse(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("clientId")] string ClientId);
+
+internal sealed record RoleRepresentation(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? Description);
+
+internal sealed record ProtocolMapperRepresentation(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("protocol")] string Protocol,
+    [property: JsonPropertyName("protocolMapper")] string ProtocolMapper,
+    [property: JsonPropertyName("config")] Dictionary<string, string> Config);
+
 internal sealed record ClientRepresentation(
     [property: JsonPropertyName("clientId")]
     string ClientId,
@@ -195,4 +261,9 @@ internal sealed record ClientRepresentation(
 [JsonSerializable(typeof(PartialImportRequest))]
 [JsonSerializable(typeof(ClientRepresentation))]
 [JsonSerializable(typeof(List<ClientRepresentation>))]
+[JsonSerializable(typeof(ClientLookupResponse))]
+[JsonSerializable(typeof(List<ClientLookupResponse>))]
+[JsonSerializable(typeof(RoleRepresentation))]
+[JsonSerializable(typeof(ProtocolMapperRepresentation))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 internal sealed partial class KeycloakJsonContext : JsonSerializerContext;

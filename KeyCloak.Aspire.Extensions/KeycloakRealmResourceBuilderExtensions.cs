@@ -271,6 +271,46 @@ public static class KeycloakRealmResourceBuilderExtensions
         return builder;
     }
 
+    /// <summary>
+    ///     Adds a client role to the Keycloak client. On startup, once the client is ready, the role is checked for existence
+    ///     via the Admin REST API and created if it does not yet exist.
+    /// </summary>
+    /// <param name="builder">The client resource builder.</param>
+    /// <param name="name">The role name.</param>
+    /// <param name="description">Optional description for the role.</param>
+    /// <param name="configureMapper">
+    ///     Optional delegate to configure the OIDC protocol mapper that maps this client's roles into JWT token claims. When
+    ///     provided, a <c>oidc-usermodel-client-role-mapper</c> is created on the client if it does not already exist. If
+    ///     called on multiple roles, the last non-null configuration wins.
+    /// </param>
+    public static IResourceBuilder<KeycloakClientResource> WithRole(this IResourceBuilder<KeycloakClientResource> builder, string name, string? description = null,
+        Action<KeycloakRoleMapperBuilder>? configureMapper = null)
+    {
+        builder.Resource.Roles.Add(new KeycloakClientRole(name, description));
+
+        if (configureMapper is not null)
+        {
+            var mapperBuilder = new KeycloakRoleMapperBuilder();
+            configureMapper(mapperBuilder);
+            builder.Resource.RoleMapper = mapperBuilder.Options;
+        }
+
+        return builder;
+    }
+
+    /// <summary>
+    ///     Configures the OIDC protocol mapper that maps this client's roles into JWT token claims.
+    /// </summary>
+    /// <param name="builder">The client resource builder.</param>
+    /// <param name="configure">Delegate to configure the role mapper options.</param>
+    public static IResourceBuilder<KeycloakClientResource> WithRoleMapper(this IResourceBuilder<KeycloakClientResource> builder, Action<KeycloakRoleMapperBuilder> configure)
+    {
+        var mapperBuilder = new KeycloakRoleMapperBuilder();
+        configure(mapperBuilder);
+        builder.Resource.RoleMapper = mapperBuilder.Options;
+        return builder;
+    }
+
     private static async Task ProvisionClientAsync(KeycloakAdminApiClient adminApi, string realmName, KeycloakClientResource clientResource, ResourceLoggerService loggerService,
         ResourceNotificationService notificationService, CancellationToken ct)
     {
@@ -305,6 +345,41 @@ public static class KeycloakRealmResourceBuilderExtensions
 
                 await adminApi.CreateClientAsync(realmName, representation, ct);
                 logger.LogInformation("Client '{ClientId}' created successfully in realm '{RealmName}'.", clientResource.ClientId, realmName);
+            }
+
+            if (clientResource.Roles.Count > 0 || clientResource.RoleMapper is not null)
+            {
+                var internalId = await adminApi.GetClientInternalIdAsync(realmName, clientResource.ClientId, ct);
+
+                foreach (var role in clientResource.Roles)
+                {
+                    if (await adminApi.ClientRoleExistsAsync(realmName, internalId, role.Name, ct))
+                        logger.LogInformation("Role '{RoleName}' already exists on client '{ClientId}'.", role.Name, clientResource.ClientId);
+                    else
+                    {
+                        logger.LogInformation("Role '{RoleName}' not found on client '{ClientId}', creating...", role.Name, clientResource.ClientId);
+                        await adminApi.CreateClientRoleAsync(realmName, internalId, new RoleRepresentation(role.Name, role.Description), ct);
+                        logger.LogInformation("Role '{RoleName}' created successfully on client '{ClientId}'.", role.Name, clientResource.ClientId);
+                    }
+                }
+
+                if (clientResource.RoleMapper is { } mapperOptions)
+                {
+                    var mapper = new ProtocolMapperRepresentation($"{clientResource.ClientId}-roles", "openid-connect", "oidc-usermodel-client-role-mapper",
+                        new Dictionary<string, string>
+                        {
+                            ["claim.name"] = mapperOptions.ClaimName,
+                            ["jsonType.label"] = "String",
+                            ["access.token.claim"] = mapperOptions.AddToAccessToken ? "true" : "false",
+                            ["id.token.claim"] = mapperOptions.AddToIdToken ? "true" : "false",
+                            ["userinfo.token.claim"] = mapperOptions.AddToUserinfo ? "true" : "false",
+                            ["multivalued"] = mapperOptions.Multivalued ? "true" : "false",
+                            ["usermodel.clientRoleMapping.clientId"] = clientResource.ClientId
+                        });
+
+                    await adminApi.CreateProtocolMapperAsync(realmName, internalId, mapper, ct);
+                    logger.LogInformation("Role mapper created on client '{ClientId}'.", clientResource.ClientId);
+                }
             }
 
             await notificationService.PublishUpdateAsync(clientResource,

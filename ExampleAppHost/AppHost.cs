@@ -13,6 +13,11 @@ var client = realm.AddClient("example-client", "Example Client", "Example applic
     .WithStandardFlow()
     .WithClientAuthentication()
     .WithRedirectUris("https://localhost:*/authentication/login-callback")
-    .WithWebOrigins("https://localhost:*").WithClientSecret("rxz7YdttSweRAMcCj0fIsgCmjHiosZR5");
+    .WithWebOrigins("https://localhost:*")
+    .WithClientSecret("rxz7YdttSweRAMcCj0fIsgCmjHiosZR5")
+    .WithRoleMapper(mapper => mapper.AddToAccessToken().AddToIdToken());
+
+var adminRole = client.WithRole("admin", "Full administrative access", mapper => mapper.AddToAccessToken().AddToIdToken());
+var userRole = client.WithRole("user", "Standard user access");
 
 builder.Build().Run();
