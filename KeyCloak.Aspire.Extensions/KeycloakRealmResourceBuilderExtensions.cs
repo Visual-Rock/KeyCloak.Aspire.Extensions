@@ -63,6 +63,18 @@ public static class KeycloakRealmResourceBuilderExtensions
                 await notificationService.PublishUpdateAsync(realmResource,
                     s => s with { State = new ResourceStateSnapshot(KnownResourceStates.Running, KnownResourceStateStyles.Success) });
 
+                foreach (var role in realmResource.Roles)
+                {
+                    if (await adminApi.RealmRoleExistsAsync(realmName, role.Name, ct))
+                        logger.LogInformation("Realm role '{RoleName}' already exists in realm '{RealmName}'.", role.Name, realmName);
+                    else
+                    {
+                        logger.LogInformation("Realm role '{RoleName}' not found in realm '{RealmName}', creating...", role.Name, realmName);
+                        await adminApi.CreateRealmRoleAsync(realmName, new RoleRepresentation(role.Name, role.Description), ct);
+                        logger.LogInformation("Realm role '{RoleName}' created successfully in realm '{RealmName}'.", role.Name, realmName);
+                    }
+                }
+
                 foreach (var annotation in realmResource.Annotations.OfType<KeycloakUserAnnotation>())
                     await ProvisionUserAsync(adminApi, realmName, annotation.UserResource, loggerService, notificationService, ct);
 
@@ -131,6 +143,19 @@ public static class KeycloakRealmResourceBuilderExtensions
             await notificationService.PublishUpdateAsync(user,
                 s => s with { State = new ResourceStateSnapshot(KnownResourceStates.FailedToStart, KnownResourceStateStyles.Error) });
         }
+    }
+
+    /// <summary>
+    ///     Adds a realm role to the Keycloak realm. On startup, once the realm is ready, the role is checked for existence
+    ///     via the Admin REST API and created if it does not yet exist.
+    /// </summary>
+    /// <param name="builder">The realm resource builder.</param>
+    /// <param name="name">The role name.</param>
+    /// <param name="description">Optional description for the role.</param>
+    public static IResourceBuilder<KeycloakRealmResource> WithRole(this IResourceBuilder<KeycloakRealmResource> builder, string name, string? description = null)
+    {
+        builder.Resource.Roles.Add(new KeycloakRealmRole(name, description));
+        return builder;
     }
 
     /// <summary>

@@ -81,6 +81,28 @@ internal sealed class KeycloakAdminApiClient(HttpClient client, string baseUrl, 
         }
     }
 
+    public async Task<bool> RealmRoleExistsAsync(string realmName, string roleName, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var response = await client.GetAsync($"{baseUrl}/admin/realms/{realmName}/roles/{Uri.EscapeDataString(roleName)}", ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return false;
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    public async Task CreateRealmRoleAsync(string realmName, RoleRepresentation role, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var content = JsonContent.Create(role, KeycloakJsonContext.Default.RoleRepresentation);
+        var response = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/roles", content, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task<bool> ClientExistsAsync(string realmName, string clientId, CancellationToken ct)
     {
         await Authenticate(ct);

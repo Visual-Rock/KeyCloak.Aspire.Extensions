@@ -14,4 +14,6 @@ public sealed class KeycloakRealmResource(string name, string realmName, Keycloa
     ///     The parent <see cref="KeycloakResource" /> that hosts this realm.
     /// </summary>
     public KeycloakResource Parent { get; } = parent;
+
+    internal List<KeycloakRealmRole> Roles { get; } = [];
 }
