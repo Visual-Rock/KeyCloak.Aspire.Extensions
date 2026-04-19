@@ -4,5 +4,14 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+
+        <Authors>Visual-Rock</Authors>
+        <Description>Keycloak extensions for .NET Aspire.</Description>
+        <PackageTags>Aspire;Keycloak</PackageTags>
+        <PackageProjectUrl>https://github.com/vrock/KeyCloak.Aspire.Extensions</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/vrock/KeyCloak.Aspire.Extensions</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     </PropertyGroup>
 </Project>
