@@ -32,7 +32,7 @@ public sealed class KeycloakClientResource(string name, string clientId, string 
     internal bool ServiceAccountsEnabled { get; set; } = false;
     internal List<string> RedirectUris { get; } = [];
     internal List<string> WebOrigins { get; } = [];
-    internal List<KeycloakClientRole> Roles { get; } = [];
+    internal List<KeycloakClientRoleResource> Roles { get; } = [];
     internal KeycloakRoleMapperOptions? RoleMapper { get; set; }
 
     /// <inheritdoc />

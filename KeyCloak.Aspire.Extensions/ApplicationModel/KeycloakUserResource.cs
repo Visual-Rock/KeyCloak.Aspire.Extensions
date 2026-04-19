@@ -25,4 +25,14 @@ public sealed class KeycloakUserResource(string name, string? id, string usernam
     ///     The parent <see cref="KeycloakRealmResource" /> that owns this user.
     /// </summary>
     public KeycloakRealmResource Parent { get; } = parent;
+
+    /// <summary>
+    ///     Realm-level roles to assign to this user on provisioning.
+    /// </summary>
+    internal List<KeycloakRealmRoleResource> RealmRoles { get; } = [];
+
+    /// <summary>
+    ///     Client-scoped roles to assign to this user on provisioning.
+    /// </summary>
+    internal List<KeycloakClientRoleResource> ClientRoles { get; } = [];
 }

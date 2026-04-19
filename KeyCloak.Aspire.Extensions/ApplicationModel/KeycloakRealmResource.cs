@@ -15,5 +15,5 @@ public sealed class KeycloakRealmResource(string name, string realmName, Keycloa
     /// </summary>
     public KeycloakResource Parent { get; } = parent;
 
-    internal List<KeycloakRealmRole> Roles { get; } = [];
+    internal List<KeycloakRealmRoleResource> Roles { get; } = [];
 }

@@ -65,21 +65,21 @@ public static class KeycloakRealmResourceBuilderExtensions
 
                 foreach (var role in realmResource.Roles)
                 {
-                    if (await adminApi.RealmRoleExistsAsync(realmName, role.Name, ct))
-                        logger.LogInformation("Realm role '{RoleName}' already exists in realm '{RealmName}'.", role.Name, realmName);
+                    if (await adminApi.RealmRoleExistsAsync(realmName, role.RoleName, ct))
+                        logger.LogInformation("Realm role '{RoleName}' already exists in realm '{RealmName}'.", role.RoleName, realmName);
                     else
                     {
-                        logger.LogInformation("Realm role '{RoleName}' not found in realm '{RealmName}', creating...", role.Name, realmName);
-                        await adminApi.CreateRealmRoleAsync(realmName, new RoleRepresentation(role.Name, role.Description), ct);
-                        logger.LogInformation("Realm role '{RoleName}' created successfully in realm '{RealmName}'.", role.Name, realmName);
+                        logger.LogInformation("Realm role '{RoleName}' not found in realm '{RealmName}', creating...", role.RoleName, realmName);
+                        await adminApi.CreateRealmRoleAsync(realmName, new RoleRepresentation(role.RoleName, role.Description), ct);
+                        logger.LogInformation("Realm role '{RoleName}' created successfully in realm '{RealmName}'.", role.RoleName, realmName);
                     }
                 }
 
-                foreach (var annotation in realmResource.Annotations.OfType<KeycloakUserAnnotation>())
-                    await ProvisionUserAsync(adminApi, realmName, annotation.UserResource, loggerService, notificationService, ct);
-
                 foreach (var annotation in realmResource.Annotations.OfType<KeycloakClientAnnotation>())
                     await ProvisionClientAsync(adminApi, realmName, annotation.ClientResource, loggerService, notificationService, ct);
+
+                foreach (var annotation in realmResource.Annotations.OfType<KeycloakUserAnnotation>())
+                    await ProvisionUserAsync(adminApi, realmName, annotation.UserResource, loggerService, notificationService, ct);
             }
             catch (Exception ex)
             {
@@ -115,6 +115,32 @@ public static class KeycloakRealmResourceBuilderExtensions
         return builder.ApplicationBuilder.AddResource(userResource).WithParentRelationship(builder);
     }
 
+    /// <summary>
+    ///     Assigns a realm-level role to this user on provisioning. The role must already be defined on the realm
+    ///     via <see cref="WithRole(IResourceBuilder{KeycloakRealmResource}, string, string?)" />.
+    /// </summary>
+    /// <param name="builder">The user resource builder.</param>
+    /// <param name="role">The realm role resource builder to assign.</param>
+    public static IResourceBuilder<KeycloakUserResource> WithRealmRole(this IResourceBuilder<KeycloakUserResource> builder, IResourceBuilder<KeycloakRealmRoleResource> role)
+    {
+        builder.Resource.RealmRoles.Add(role.Resource);
+        return builder;
+    }
+
+    /// <summary>
+    ///     Assigns a client-scoped role to this user on provisioning. The role must already be defined on the client
+    ///     via
+    ///     <see cref="WithRole(IResourceBuilder{KeycloakClientResource}, string, string?, Action{KeycloakRoleMapperBuilder}?)" />
+    ///     .
+    /// </summary>
+    /// <param name="builder">The user resource builder.</param>
+    /// <param name="role">The client role resource builder to assign.</param>
+    public static IResourceBuilder<KeycloakUserResource> WithClientRole(this IResourceBuilder<KeycloakUserResource> builder, IResourceBuilder<KeycloakClientRoleResource> role)
+    {
+        builder.Resource.ClientRoles.Add(role.Resource);
+        return builder;
+    }
+
     private static async Task ProvisionUserAsync(KeycloakAdminApiClient adminApi, string realmName, KeycloakUserResource user, ResourceLoggerService loggerService,
         ResourceNotificationService notificationService, CancellationToken ct)
     {
@@ -132,6 +158,39 @@ public static class KeycloakRealmResourceBuilderExtensions
                 logger.LogInformation("User '{Username}' not found in realm '{RealmName}', creating...", user.Username, realmName);
                 await adminApi.CreateUserAsync(realmName, user, ct);
                 logger.LogInformation("User '{Username}' created successfully in realm '{RealmName}'.", user.Username, realmName);
+            }
+
+            if (user.RealmRoles.Count > 0 || user.ClientRoles.Count > 0)
+            {
+                var userId = await adminApi.GetUserIdAsync(realmName, user.Username, ct);
+
+                if (user.RealmRoles.Count > 0)
+                {
+                    var roles = new List<RoleRepresentation>();
+                    foreach (var role in user.RealmRoles)
+                    {
+                        var representation = await adminApi.GetRealmRoleAsync(realmName, role.RoleName, ct);
+                        roles.Add(representation);
+                    }
+
+                    await adminApi.AssignRealmRolesToUserAsync(realmName, userId, roles, ct);
+                    logger.LogInformation("Assigned {Count} realm role(s) to user '{Username}'.", roles.Count, user.Username);
+                }
+
+                foreach (var clientGroup in user.ClientRoles.GroupBy(r => r.Parent.ClientId))
+                {
+                    var internalClientId = await adminApi.GetClientInternalIdAsync(realmName, clientGroup.Key, ct);
+                    var roles = new List<RoleRepresentation>();
+
+                    foreach (var role in clientGroup)
+                    {
+                        var representation = await adminApi.GetClientRoleAsync(realmName, internalClientId, role.RoleName, ct);
+                        roles.Add(representation);
+                    }
+
+                    await adminApi.AssignClientRolesToUserAsync(realmName, userId, internalClientId, roles, ct);
+                    logger.LogInformation("Assigned {Count} client role(s) from '{ClientId}' to user '{Username}'.", roles.Count, clientGroup.Key, user.Username);
+                }
             }
 
             await notificationService.PublishUpdateAsync(user,
@@ -152,10 +211,13 @@ public static class KeycloakRealmResourceBuilderExtensions
     /// <param name="builder">The realm resource builder.</param>
     /// <param name="name">The role name.</param>
     /// <param name="description">Optional description for the role.</param>
-    public static IResourceBuilder<KeycloakRealmResource> WithRole(this IResourceBuilder<KeycloakRealmResource> builder, string name, string? description = null)
+    /// <returns>A resource builder for the <see cref="KeycloakRealmRoleResource" />.</returns>
+    public static IResourceBuilder<KeycloakRealmRoleResource> WithRole(this IResourceBuilder<KeycloakRealmResource> builder, string name, string? description = null)
     {
-        builder.Resource.Roles.Add(new KeycloakRealmRole(name, description));
-        return builder;
+        var resourceName = $"{builder.Resource.Name}-{name}";
+        var roleResource = new KeycloakRealmRoleResource(resourceName, name, description, builder.Resource);
+        builder.Resource.Roles.Add(roleResource);
+        return builder.ApplicationBuilder.AddResource(roleResource).WithParentRelationship(builder);
     }
 
     /// <summary>
@@ -308,10 +370,13 @@ public static class KeycloakRealmResourceBuilderExtensions
     ///     provided, a <c>oidc-usermodel-client-role-mapper</c> is created on the client if it does not already exist. If
     ///     called on multiple roles, the last non-null configuration wins.
     /// </param>
-    public static IResourceBuilder<KeycloakClientResource> WithRole(this IResourceBuilder<KeycloakClientResource> builder, string name, string? description = null,
+    /// <returns>A resource builder for the <see cref="KeycloakClientRoleResource" />.</returns>
+    public static IResourceBuilder<KeycloakClientRoleResource> WithRole(this IResourceBuilder<KeycloakClientResource> builder, string name, string? description = null,
         Action<KeycloakRoleMapperBuilder>? configureMapper = null)
     {
-        builder.Resource.Roles.Add(new KeycloakClientRole(name, description));
+        var resourceName = $"{builder.Resource.Name}-{name}";
+        var roleResource = new KeycloakClientRoleResource(resourceName, name, description, builder.Resource);
+        builder.Resource.Roles.Add(roleResource);
 
         if (configureMapper is not null)
         {
@@ -320,7 +385,7 @@ public static class KeycloakRealmResourceBuilderExtensions
             builder.Resource.RoleMapper = mapperBuilder.Options;
         }
 
-        return builder;
+        return builder.ApplicationBuilder.AddResource(roleResource).WithParentRelationship(builder);
     }
 
     /// <summary>
@@ -378,13 +443,13 @@ public static class KeycloakRealmResourceBuilderExtensions
 
                 foreach (var role in clientResource.Roles)
                 {
-                    if (await adminApi.ClientRoleExistsAsync(realmName, internalId, role.Name, ct))
-                        logger.LogInformation("Role '{RoleName}' already exists on client '{ClientId}'.", role.Name, clientResource.ClientId);
+                    if (await adminApi.ClientRoleExistsAsync(realmName, internalId, role.RoleName, ct))
+                        logger.LogInformation("Role '{RoleName}' already exists on client '{ClientId}'.", role.RoleName, clientResource.ClientId);
                     else
                     {
-                        logger.LogInformation("Role '{RoleName}' not found on client '{ClientId}', creating...", role.Name, clientResource.ClientId);
-                        await adminApi.CreateClientRoleAsync(realmName, internalId, new RoleRepresentation(role.Name, role.Description), ct);
-                        logger.LogInformation("Role '{RoleName}' created successfully on client '{ClientId}'.", role.Name, clientResource.ClientId);
+                        logger.LogInformation("Role '{RoleName}' not found on client '{ClientId}', creating...", role.RoleName, clientResource.ClientId);
+                        await adminApi.CreateClientRoleAsync(realmName, internalId, new RoleRepresentation(role.RoleName, role.Description), ct);
+                        logger.LogInformation("Role '{RoleName}' created successfully on client '{ClientId}'.", role.RoleName, clientResource.ClientId);
                     }
                 }
 

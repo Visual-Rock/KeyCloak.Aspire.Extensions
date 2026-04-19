@@ -58,6 +58,19 @@ internal sealed class KeycloakAdminApiClient(HttpClient client, string baseUrl, 
         return users?.Count > 0;
     }
 
+    public async Task<string> GetUserIdAsync(string realmName, string username, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var url = $"{baseUrl}/admin/realms/{realmName}/users?username={Uri.EscapeDataString(username)}&exact=true";
+        var response = await client.GetAsync(url, ct);
+        response.EnsureSuccessStatusCode();
+
+        var users = await response.Content.ReadFromJsonAsync(KeycloakJsonContext.Default.ListUserRepresentation, ct);
+        return users?.FirstOrDefault()?.Id
+               ?? throw new InvalidOperationException($"User '{username}' not found in realm '{realmName}'.");
+    }
+
     public async Task CreateUserAsync(string realmName, KeycloakUserResource user, CancellationToken ct)
     {
         await Authenticate(ct);
@@ -94,12 +107,32 @@ internal sealed class KeycloakAdminApiClient(HttpClient client, string baseUrl, 
         return true;
     }
 
+    public async Task<RoleRepresentation> GetRealmRoleAsync(string realmName, string roleName, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var response = await client.GetAsync($"{baseUrl}/admin/realms/{realmName}/roles/{Uri.EscapeDataString(roleName)}", ct);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(KeycloakJsonContext.Default.RoleRepresentation, ct)
+               ?? throw new InvalidOperationException($"Realm role '{roleName}' not found in realm '{realmName}'.");
+    }
+
     public async Task CreateRealmRoleAsync(string realmName, RoleRepresentation role, CancellationToken ct)
     {
         await Authenticate(ct);
 
         var content = JsonContent.Create(role, KeycloakJsonContext.Default.RoleRepresentation);
         var response = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/roles", content, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task AssignRealmRolesToUserAsync(string realmName, string userId, List<RoleRepresentation> roles, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var content = JsonContent.Create(roles, KeycloakJsonContext.Default.ListRoleRepresentation);
+        var response = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/users/{userId}/role-mappings/realm", content, ct);
         response.EnsureSuccessStatusCode();
     }
 
@@ -142,12 +175,32 @@ internal sealed class KeycloakAdminApiClient(HttpClient client, string baseUrl, 
         return true;
     }
 
+    public async Task<RoleRepresentation> GetClientRoleAsync(string realmName, string internalClientId, string roleName, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var response = await client.GetAsync($"{baseUrl}/admin/realms/{realmName}/clients/{internalClientId}/roles/{Uri.EscapeDataString(roleName)}", ct);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(KeycloakJsonContext.Default.RoleRepresentation, ct)
+               ?? throw new InvalidOperationException($"Client role '{roleName}' not found on client '{internalClientId}' in realm '{realmName}'.");
+    }
+
     public async Task CreateClientRoleAsync(string realmName, string internalClientId, RoleRepresentation role, CancellationToken ct)
     {
         await Authenticate(ct);
 
         var content = JsonContent.Create(role, KeycloakJsonContext.Default.RoleRepresentation);
         var response = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/clients/{internalClientId}/roles", content, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task AssignClientRolesToUserAsync(string realmName, string userId, string internalClientId, List<RoleRepresentation> roles, CancellationToken ct)
+    {
+        await Authenticate(ct);
+
+        var content = JsonContent.Create(roles, KeycloakJsonContext.Default.ListRoleRepresentation);
+        var response = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/users/{userId}/role-mappings/clients/{internalClientId}", content, ct);
         response.EnsureSuccessStatusCode();
     }
 
@@ -237,7 +290,10 @@ internal sealed record RoleRepresentation(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? Description);
+    string? Description,
+    [property: JsonPropertyName("id")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? Id = null);
 
 internal sealed record ProtocolMapperRepresentation(
     [property: JsonPropertyName("name")] string Name,
@@ -286,6 +342,7 @@ internal sealed record ClientRepresentation(
 [JsonSerializable(typeof(ClientLookupResponse))]
 [JsonSerializable(typeof(List<ClientLookupResponse>))]
 [JsonSerializable(typeof(RoleRepresentation))]
+[JsonSerializable(typeof(List<RoleRepresentation>))]
 [JsonSerializable(typeof(ProtocolMapperRepresentation))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 internal sealed partial class KeycloakJsonContext : JsonSerializerContext;
