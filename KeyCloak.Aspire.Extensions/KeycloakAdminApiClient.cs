@@ -20,7 +20,8 @@ internal sealed class KeycloakAdminApiClient(HttpClient client, string baseUrl, 
             }), ct);
 
         response.EnsureSuccessStatusCode();
-        var token = await response.Content.ReadFromJsonAsync(KeycloakJsonContext.Default.TokenResponse, ct) ?? throw new InvalidOperationException("Empty token response from Keycloak.");
+        var token = await response.Content.ReadFromJsonAsync(KeycloakJsonContext.Default.TokenResponse, ct) ??
+                    throw new InvalidOperationException("Empty token response from Keycloak.");
         var accessToken = token.AccessToken ?? throw new InvalidOperationException("No access_token in Keycloak token response.");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
     }
@@ -81,7 +82,7 @@ internal sealed class KeycloakAdminApiClient(HttpClient client, string baseUrl, 
         // The standard create-user endpoint ignores the id field
         if (user.Id is not null)
         {
-            var import = new PartialImportRequest("SKIP", Users: [representation]);
+            var import = new PartialImportRequest("SKIP", [representation]);
             var importContent = JsonContent.Create(import, KeycloakJsonContext.Default.PartialImportRequest);
             var importResponse = await client.PostAsync($"{baseUrl}/admin/realms/{realmName}/partialImport", importContent, ct);
             importResponse.EnsureSuccessStatusCode();
@@ -284,7 +285,8 @@ internal sealed record PartialImportRequest(
 
 internal sealed record ClientLookupResponse(
     [property: JsonPropertyName("id")] string Id,
-    [property: JsonPropertyName("clientId")] string ClientId);
+    [property: JsonPropertyName("clientId")]
+    string ClientId);
 
 internal sealed record RoleRepresentation(
     [property: JsonPropertyName("name")] string Name,
@@ -297,8 +299,10 @@ internal sealed record RoleRepresentation(
 
 internal sealed record ProtocolMapperRepresentation(
     [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("protocol")] string Protocol,
-    [property: JsonPropertyName("protocolMapper")] string ProtocolMapper,
+    [property: JsonPropertyName("protocol")]
+    string Protocol,
+    [property: JsonPropertyName("protocolMapper")]
+    string ProtocolMapper,
     [property: JsonPropertyName("config")] Dictionary<string, string> Config);
 
 internal sealed record ClientRepresentation(

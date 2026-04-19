@@ -1,10 +1,11 @@
 <Solution>
     <Folder Name="/Example/">
-        <Project Path="ExampleAppHost/ExampleAppHost.csproj"/>
+        <Project Path="ExampleAppHost/ExampleAppHost.csproj" />
     </Folder>
     <Folder Name="/Solution Folder/">
-        <File Path=".gitignore"/>
-        <File Path="Directory.Build.props"/>
+        <File Path=".github\workflows\nuget-publish.yml" />
+        <File Path=".gitignore" />
+        <File Path="Directory.Build.props" />
     </Folder>
-    <Project Path="KeyCloak.Aspire.Extensions/KeyCloak.Aspire.Extensions.csproj"/>
+    <Project Path="KeyCloak.Aspire.Extensions/KeyCloak.Aspire.Extensions.csproj" />
 </Solution>
