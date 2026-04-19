@@ -470,8 +470,10 @@ public static class KeycloakRealmResourceBuilderExtensions
                     clientResource.RootUrl,
                     clientResource.HomeUrl,
                     clientResource.RedirectUris.Count > 0 ? [.. clientResource.RedirectUris] : null,
-                    clientResource.PostLogoutRedirectUris.Count > 0 ? [.. clientResource.PostLogoutRedirectUris] : null,
                     clientResource.WebOrigins.Count > 0 ? [.. clientResource.WebOrigins] : null,
+                    clientResource.PostLogoutRedirectUris.Count > 0
+                        ? new Dictionary<string, string> { ["post.logout.redirect.uris"] = string.Join("##", clientResource.PostLogoutRedirectUris) }
+                        : null,
                     clientResource.Secret);
 
                 await adminApi.CreateClientAsync(realmName, representation, ct);

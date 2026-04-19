@@ -339,11 +339,11 @@ internal sealed record ClientRepresentation(
     string? BaseUrl,
     [property: JsonPropertyName("redirectUris")]
     string[]? RedirectUris,
-    [property: JsonPropertyName("postLogoutRedirectUris")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string[]? PostLogoutRedirectUris,
     [property: JsonPropertyName("webOrigins")]
     string[]? WebOrigins,
+    [property: JsonPropertyName("attributes")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    Dictionary<string, string>? Attributes,
     [property: JsonPropertyName("secret")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? Secret);

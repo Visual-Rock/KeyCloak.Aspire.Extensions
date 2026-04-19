@@ -17,6 +17,7 @@ var client = realm.AddClient("example-client", "Example Client", "Example applic
     .WithStandardFlow()
     .WithClientAuthentication()
     .WithRedirectUris("https://localhost:*/authentication/login-callback")
+    .WithPostLogoutRedirectUris("https://localhost:*/authentication/logout-callback")
     .WithWebOrigins("https://localhost:*")
     .WithClientSecret("rxz7YdttSweRAMcCj0fIsgCmjHiosZR5")
     .WithRoleMapper(mapper => mapper.AddToAccessToken().AddToIdToken());
