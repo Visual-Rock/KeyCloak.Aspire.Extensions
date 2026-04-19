@@ -30,7 +30,11 @@ public sealed class KeycloakClientResource(string name, string clientId, string 
     internal bool ImplicitFlowEnabled { get; set; } = false;
     internal bool DirectAccessGrantsEnabled { get; set; } = false;
     internal bool ServiceAccountsEnabled { get; set; } = false;
+    internal string? AdminUrl { get; set; }
+    internal string? RootUrl { get; set; }
+    internal string? HomeUrl { get; set; }
     internal List<string> RedirectUris { get; } = [];
+    internal List<string> PostLogoutRedirectUris { get; } = [];
     internal List<string> WebOrigins { get; } = [];
     internal List<KeycloakClientRoleResource> Roles { get; } = [];
     internal KeycloakRoleMapperOptions? RoleMapper { get; set; }

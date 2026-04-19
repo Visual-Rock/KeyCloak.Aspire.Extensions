@@ -328,8 +328,20 @@ internal sealed record ClientRepresentation(
     bool DirectAccessGrantsEnabled,
     [property: JsonPropertyName("serviceAccountsEnabled")]
     bool ServiceAccountsEnabled,
+    [property: JsonPropertyName("adminUrl")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? AdminUrl,
+    [property: JsonPropertyName("rootUrl")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? RootUrl,
+    [property: JsonPropertyName("baseUrl")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? BaseUrl,
     [property: JsonPropertyName("redirectUris")]
     string[]? RedirectUris,
+    [property: JsonPropertyName("postLogoutRedirectUris")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string[]? PostLogoutRedirectUris,
     [property: JsonPropertyName("webOrigins")]
     string[]? WebOrigins,
     [property: JsonPropertyName("secret")]

@@ -29,7 +29,7 @@ dotnet add package KeyCloak.Aspire.Extensions
 
 ## Usage
 
-In your `Program.cs` (or `AppHost.cs`) of the AppHost project, you can configure Keycloak resources as follows:
+In your `AppHost.cs` of the AppHost project, you can configure Keycloak resources as follows:
 
 ```csharp
 var builder = DistributedApplication.CreateBuilder(args);
@@ -52,6 +52,8 @@ var client = realm.AddClient("example-client", "Example Client")
     .WithPublicAccess()
     .WithStandardFlow()
     .WithRedirectUris("https://localhost:5001/signin-oidc")
+    .WithPostLogoutRedirectUris("https://localhost:5001/signout-callback-oidc")
+    .WithAdminUrl("https://localhost:5001/admin")
     .WithRoleMapper(mapper => mapper.AddToAccessToken().AddToIdToken());
 
 // Add client-specific roles
@@ -80,6 +82,10 @@ builder.Build().Run();
 - `WithStandardFlow()` / `WithImplicitFlow()`: Configures OIDC flows.
 - `WithClientSecret(string secret)`: Sets a static secret for confidential clients.
 - `WithRedirectUris(params string[] uris)`: Configures allowed redirect URIs.
+- `WithPostLogoutRedirectUris(params string[] uris)`: Configures allowed post logout redirect URIs.
+- `WithAdminUrl(string adminUrl)`: Sets the admin URL for the client.
+- `WithRootUrl(string rootUrl)`: Sets the root URL for the client.
+- `WithHomeUrl(string homeUrl)`: Sets the home URL for the client.
 - `WithRole(string name, string? description, Action<KeycloakRoleMapperBuilder>? configureMapper)`: Adds a client-scoped role.
 - `WithRoleMapper(Action<KeycloakRoleMapperBuilder> configure)`: Configures JWT protocol mappers for roles.
 

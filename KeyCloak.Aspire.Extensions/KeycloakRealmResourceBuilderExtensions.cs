@@ -349,6 +349,43 @@ public static class KeycloakRealmResourceBuilderExtensions
     }
 
     /// <summary>
+    ///     Sets the allowed post logout redirect URIs for the client.
+    /// </summary>
+    public static IResourceBuilder<KeycloakClientResource> WithPostLogoutRedirectUris(this IResourceBuilder<KeycloakClientResource> builder, params string[] uris)
+    {
+        builder.Resource.PostLogoutRedirectUris.Clear();
+        builder.Resource.PostLogoutRedirectUris.AddRange(uris);
+        return builder;
+    }
+
+    /// <summary>
+    ///     Sets the admin URL for the client.
+    /// </summary>
+    public static IResourceBuilder<KeycloakClientResource> WithAdminUrl(this IResourceBuilder<KeycloakClientResource> builder, string adminUrl)
+    {
+        builder.Resource.AdminUrl = adminUrl;
+        return builder;
+    }
+
+    /// <summary>
+    ///     Sets the root URL for the client.
+    /// </summary>
+    public static IResourceBuilder<KeycloakClientResource> WithRootUrl(this IResourceBuilder<KeycloakClientResource> builder, string rootUrl)
+    {
+        builder.Resource.RootUrl = rootUrl;
+        return builder;
+    }
+
+    /// <summary>
+    ///     Sets the home URL for the client.
+    /// </summary>
+    public static IResourceBuilder<KeycloakClientResource> WithHomeUrl(this IResourceBuilder<KeycloakClientResource> builder, string homeUrl)
+    {
+        builder.Resource.HomeUrl = homeUrl;
+        return builder;
+    }
+
+    /// <summary>
     ///     Sets the allowed web origins for the client (used for CORS).
     /// </summary>
     public static IResourceBuilder<KeycloakClientResource> WithWebOrigins(this IResourceBuilder<KeycloakClientResource> builder, params string[] origins)
@@ -429,7 +466,11 @@ public static class KeycloakRealmResourceBuilderExtensions
                     clientResource.ImplicitFlowEnabled,
                     clientResource.DirectAccessGrantsEnabled,
                     clientResource.ServiceAccountsEnabled,
+                    clientResource.AdminUrl,
+                    clientResource.RootUrl,
+                    clientResource.HomeUrl,
                     clientResource.RedirectUris.Count > 0 ? [.. clientResource.RedirectUris] : null,
+                    clientResource.PostLogoutRedirectUris.Count > 0 ? [.. clientResource.PostLogoutRedirectUris] : null,
                     clientResource.WebOrigins.Count > 0 ? [.. clientResource.WebOrigins] : null,
                     clientResource.Secret);
 
