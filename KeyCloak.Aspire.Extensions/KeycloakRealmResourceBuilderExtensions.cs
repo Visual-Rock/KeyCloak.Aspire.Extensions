@@ -330,6 +330,42 @@ public static class KeycloakRealmResourceBuilderExtensions
     }
 
     /// <summary>
+    ///     Enables or disables OAuth 2.0 Device Authorization Grant. Disabled by default.
+    /// </summary>
+    public static IResourceBuilder<KeycloakClientResource> WithDeviceAuthorizationGrant(this IResourceBuilder<KeycloakClientResource> builder, bool enabled = true)
+    {
+        builder.Resource.DeviceAuthorizationGrantEnabled = enabled;
+        return builder;
+    }
+
+    /// <summary>
+    ///     Enables or disables OIDC CIBA Grant. Disabled by default.
+    /// </summary>
+    public static IResourceBuilder<KeycloakClientResource> WithCibaGrant(this IResourceBuilder<KeycloakClientResource> builder, bool enabled = true)
+    {
+        builder.Resource.CibaGrantEnabled = enabled;
+        return builder;
+    }
+
+    /// <summary>
+    ///     Enables or disables Standard Token Exchange. Disabled by default.
+    /// </summary>
+    public static IResourceBuilder<KeycloakClientResource> WithTokenExchange(this IResourceBuilder<KeycloakClientResource> builder, bool enabled = true)
+    {
+        builder.Resource.TokenExchangeEnabled = enabled;
+        return builder;
+    }
+
+    /// <summary>
+    ///     Enables or disables JWT Authorization Grant. Disabled by default.
+    /// </summary>
+    public static IResourceBuilder<KeycloakClientResource> WithJwtAuthorizationGrant(this IResourceBuilder<KeycloakClientResource> builder, bool enabled = true)
+    {
+        builder.Resource.JwtAuthorizationGrantEnabled = enabled;
+        return builder;
+    }
+
+    /// <summary>
     ///     Sets a static client secret. Only applies to confidential clients (<see cref="WithConfidentialAccess" />).
     /// </summary>
     public static IResourceBuilder<KeycloakClientResource> WithClientSecret(this IResourceBuilder<KeycloakClientResource> builder, string secret)
@@ -471,9 +507,7 @@ public static class KeycloakRealmResourceBuilderExtensions
                     clientResource.HomeUrl,
                     clientResource.RedirectUris.Count > 0 ? [.. clientResource.RedirectUris] : null,
                     clientResource.WebOrigins.Count > 0 ? [.. clientResource.WebOrigins] : null,
-                    clientResource.PostLogoutRedirectUris.Count > 0
-                        ? new Dictionary<string, string> { ["post.logout.redirect.uris"] = string.Join("##", clientResource.PostLogoutRedirectUris) }
-                        : null,
+                    GetAttributes(clientResource),
                     clientResource.Secret);
 
                 await adminApi.CreateClientAsync(realmName, representation, ct);
@@ -524,6 +558,28 @@ public static class KeycloakRealmResourceBuilderExtensions
             await notificationService.PublishUpdateAsync(clientResource,
                 s => s with { State = new ResourceStateSnapshot(KnownResourceStates.FailedToStart, KnownResourceStateStyles.Error) });
         }
+    }
+
+    private static Dictionary<string, string>? GetAttributes(KeycloakClientResource clientResource)
+    {
+        var attributes = new Dictionary<string, string>();
+
+        if (clientResource.PostLogoutRedirectUris.Count > 0)
+            attributes["post.logout.redirect.uris"] = string.Join("##", clientResource.PostLogoutRedirectUris);
+
+        if (clientResource.TokenExchangeEnabled)
+            attributes["standard.token.exchange.enabled"] = "true";
+
+        if (clientResource.JwtAuthorizationGrantEnabled)
+            attributes["oauth2.jwt.authorization.grant.enabled"] = "true";
+
+        if (clientResource.DeviceAuthorizationGrantEnabled)
+            attributes["oauth2.device.authorization.grant.enabled"] = "true";
+        
+        if (clientResource.CibaGrantEnabled)
+            attributes["oidc.ciba.grant.enabled"] = "true";
+        
+        return attributes.Count > 0 ? attributes : null;
     }
 
     private static string ResolveBaseUrl(ResourceNotificationService notificationService, KeycloakResource keycloak)

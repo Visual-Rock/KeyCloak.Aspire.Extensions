@@ -30,6 +30,10 @@ public sealed class KeycloakClientResource(string name, string clientId, string 
     internal bool ImplicitFlowEnabled { get; set; } = false;
     internal bool DirectAccessGrantsEnabled { get; set; } = false;
     internal bool ServiceAccountsEnabled { get; set; } = false;
+    internal bool DeviceAuthorizationGrantEnabled { get; set; } = false;
+    internal bool CibaGrantEnabled { get; set; } = false;
+    internal bool TokenExchangeEnabled { get; set; } = false;
+    internal bool JwtAuthorizationGrantEnabled { get; set; } = false;
     internal string? AdminUrl { get; set; }
     internal string? RootUrl { get; set; }
     internal string? HomeUrl { get; set; }
