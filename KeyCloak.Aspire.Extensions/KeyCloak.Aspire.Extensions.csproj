@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <ItemGroup>
-        <PackageReference Include="Aspire.Hosting" Version="13.2.2"/>
-        <PackageReference Include="Aspire.Hosting.Keycloak" Version="13.2.2-preview.1.26207.2"/>
+        <PackageReference Include="Aspire.Hosting" Version="13.4.5" />
+        <PackageReference Include="Aspire.Hosting.Keycloak" Version="13.4.5-preview.1.26316.12" />
     </ItemGroup>
 </Project>
